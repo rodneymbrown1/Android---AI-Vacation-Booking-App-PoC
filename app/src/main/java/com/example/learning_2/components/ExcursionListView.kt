@@ -112,6 +112,7 @@ fun ExcursionListView(
                             vacationId = vacationId
                         )
                     )
+
                 } else {
                     onAdd(
                         Excursion(
