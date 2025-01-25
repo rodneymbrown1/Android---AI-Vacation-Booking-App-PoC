@@ -36,7 +36,25 @@ fun ExcursionListView(
     var alertMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    -
+    // Helper function to validate the date format
+    fun isDateValid(date: String): Boolean {
+        val regex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+        return regex.matches(date)
+    }
+
+    // Helper function to validate if a date is within a given range
+    fun isDateWithinRange(date: String, startDate: String, endDate: String): Boolean {
+        return try {
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            val excursionDate = java.time.LocalDate.parse(date, formatter)
+            val vacationStart = java.time.LocalDate.parse(startDate, formatter)
+            val vacationEnd = java.time.LocalDate.parse(endDate, formatter)
+
+            !excursionDate.isBefore(vacationStart) && !excursionDate.isAfter(vacationEnd)
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     Column(Modifier.padding(16.dp)) {
         Text("Excursions", style = MaterialTheme.typography.titleLarge)
@@ -100,6 +118,16 @@ fun ExcursionListView(
 
         Button(
             onClick = {
+                if (!isDateValid(date)) {
+                    Toast.makeText(context, "Please enter valid dates in YYYY-MM-DD format.", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                if (!isDateWithinRange(date, vacationStartDate, vacationEndDate)) {
+                    Toast.makeText(context, "Excursion date must fall within the vacation period: $vacationStartDate to $vacationEndDate.", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
                 alertMessage = "Alert: ${if (isEditing) "Updating" else "Adding"} Excursion: $name on $date"
                 showAlertDialog = true
 
@@ -112,7 +140,6 @@ fun ExcursionListView(
                             vacationId = vacationId
                         )
                     )
-
                 } else {
                     onAdd(
                         Excursion(
@@ -148,6 +175,20 @@ fun ExcursionListView(
                 },
                 title = { Text("Validation Error") },
                 text = { Text(errorMessage) }
+            )
+        }
+
+        // Alert Dialog
+        if (showAlertDialog) {
+            AlertDialog(
+                onDismissRequest = { showAlertDialog = false },
+                confirmButton = {
+                    TextButton(onClick = { showAlertDialog = false }) {
+                        Text("OK")
+                    }
+                },
+                title = { Text("Alert") },
+                text = { Text(alertMessage) }
             )
         }
     }
