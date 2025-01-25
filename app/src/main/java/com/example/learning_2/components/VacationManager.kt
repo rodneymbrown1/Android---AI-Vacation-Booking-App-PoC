@@ -34,5 +34,134 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
         vacations = vacationDao.getAll()
     }
 
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text("Vacation Manager", style = MaterialTheme.typography.titleLarge)
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Title") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = hotel,
+            onValueChange = { hotel = it },
+            label = { Text("Hotel/Place to Stay") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = startDate,
+            onValueChange = { startDate = it },
+            label = { Text("Start Date (YYYY-MM-DD)") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = endDate,
+            onValueChange = { endDate = it },
+            label = { Text("End Date (YYYY-MM-DD)") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Existing Vacations
+        Text("Existing Vacations", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        vacations.forEach { vacation ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Title: ${vacation.title}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Hotel: ${vacation.hotel}", style = MaterialTheme.typography.bodySmall)
+                    Text("Dates: ${vacation.startDate} - ${vacation.endDate}", style = MaterialTheme.typography.bodySmall)
+                }
+                Row {
+                    TextButton(onClick = {
+                        selectedVacation = vacation
+                        title = vacation.title
+                        hotel = vacation.hotel
+                        startDate = vacation.startDate
+                        endDate = vacation.endDate
+                    }) {
+                        Text("Edit")
+                    }
+                    TextButton(onClick = {
+                        scope.launch {
+                            val excursionCount = vacationDao.getExcursionCountForVacation(vacation.id)
+                            if (excursionCount > 0) {
+                                Toast.makeText(
+                                    context,
+                                    "Cannot delete vacation with associated excursions.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                vacationDao.delete(vacation)
+                                vacations = vacationDao.getAll()
+                            }
+                        }
+                    }) {
+                        Text("Delete")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Add/Update and Next Buttons
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = {
+                scope.launch {
+                    if (selectedVacation == null) {
+                        val newVacation = Vacation(
+                            id = 0,
+                            title = title,
+                            hotel = hotel,
+                            startDate = startDate,
+                            endDate = endDate
+                        )
+                        vacationDao.insertAll(newVacation)
+                    } else {
+                        val updatedVacation = selectedVacation!!.copy(
+                            title = title,
+                            hotel = hotel,
+                            startDate = startDate,
+                            endDate = endDate
+                        )
+                        vacationDao.update(updatedVacation)
+                    }
+                    vacations = vacationDao.getAll()
+                    selectedVacation = null
+                    title = ""
+                    hotel = ""
+                    startDate = ""
+                    endDate = ""
+                }
+            }) {
+                Text(if (selectedVacation == null) "Add Vacation" else "Update Vacation")
+            }
+
+            if (selectedVacation != null) {
+                Button(
+                    onClick = { selectedVacation?.id?.let { onNext(it) } }
+                ) {
+                    Text("Next")
+                }
+            }
+        }
+    }
 }
