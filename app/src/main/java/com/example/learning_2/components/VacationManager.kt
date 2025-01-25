@@ -34,6 +34,21 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
         vacations = vacationDao.getAll()
     }
 
+    fun isDateValid(date: String): Boolean {
+        val regex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+        return regex.matches(date)
+    }
+
+    fun isEndDateAfterStartDate(): Boolean {
+        return try {
+            val start = LocalDate.parse(startDate)
+            val end = LocalDate.parse(endDate)
+            end.isAfter(start)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -63,14 +78,24 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
             onValueChange = { startDate = it },
             label = { Text("Start Date (YYYY-MM-DD)") },
             modifier = Modifier.fillMaxWidth(),
+            isError = startDate.isNotEmpty() && !isDateValid(startDate)
         )
+        if (startDate.isNotEmpty() && !isDateValid(startDate)) {
+            Text("Invalid start date format. Use YYYY-MM-DD.", color = MaterialTheme.colorScheme.error)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = endDate,
             onValueChange = { endDate = it },
             label = { Text("End Date (YYYY-MM-DD)") },
             modifier = Modifier.fillMaxWidth(),
+            isError = endDate.isNotEmpty() && (!isDateValid(endDate) || (startDate.isNotEmpty() && !isEndDateAfterStartDate()))
         )
+        if (endDate.isNotEmpty() && !isDateValid(endDate)) {
+            Text("Invalid end date format. Use YYYY-MM-DD.", color = MaterialTheme.colorScheme.error)
+        } else if (startDate.isNotEmpty() && endDate.isNotEmpty() && !isEndDateAfterStartDate()) {
+            Text("End date must be after the start date.", color = MaterialTheme.colorScheme.error)
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -125,6 +150,14 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
         // Add/Update and Next Buttons
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Button(onClick = {
+                if (!isDateValid(startDate) || !isDateValid(endDate)) {
+                    Toast.makeText(context, "Please enter valid dates in YYYY-MM-DD format.", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (!isEndDateAfterStartDate()) {
+                    Toast.makeText(context, "End date must be after the start date.", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
                 scope.launch {
                     if (selectedVacation == null) {
                         val newVacation = Vacation(
@@ -165,3 +198,4 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
         }
     }
 }
+
