@@ -1,16 +1,13 @@
 package com.example.learning_2.components
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.learning_2.database.AppDatabase
@@ -19,12 +16,10 @@ import com.example.learning_2.entities.Vacation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.learning_2.components.ShareVacationDetails
 import com.example.learning_2.components.HTTP.OpenAIConnection
-import java.util.concurrent.Executors
 
 @Composable
-fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController: NavController) {
+fun VacationDetailView(database: AppDatabase, vacationId: Long = 0, navController: NavController) {
     val vacationDao = database.vacationDao()
     val excursionDao = database.excursionDao()
     val context = LocalContext.current

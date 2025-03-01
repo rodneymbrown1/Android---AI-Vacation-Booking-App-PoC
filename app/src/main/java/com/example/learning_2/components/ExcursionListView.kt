@@ -7,7 +7,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.learning_2.entities.Excursion
 
@@ -81,7 +80,7 @@ fun ExcursionListView(
                         name = excursion.name
                         description = excursion.description
                         date = excursion.date
-                        vacationId = excursion.vacationId
+                        vacationId = excursion.vacationId.toInt()
                     }) {
                         Text("Edit")
                     }
@@ -137,17 +136,17 @@ fun ExcursionListView(
                             name = name,
                             description = description,
                             date = date,
-                            vacationId = vacationId
+                            vacationId = vacationId.toLong()
                         )
                     )
                 } else {
                     onAdd(
                         Excursion(
-                            id = excursions.size + 1,
+                            id = (excursions.size + 1).toLong(),
                             name = name,
                             description = description,
                             date = date,
-                            vacationId = vacationId
+                            vacationId = vacationId.toLong()
                         )
                     )
                 }

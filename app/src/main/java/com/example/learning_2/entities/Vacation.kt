@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 
 @Entity
 data class Vacation(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "title") var title: String,
     @ColumnInfo(name = "hotel") var hotel: String,
     @ColumnInfo(name = "start_date") var startDate: String,

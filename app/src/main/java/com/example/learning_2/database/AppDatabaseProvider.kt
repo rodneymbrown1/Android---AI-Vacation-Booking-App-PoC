@@ -65,25 +65,25 @@ object AppDatabaseProvider {
                         name = "Snorkeling",
                         description = "Explore coral reefs in Hawaii",
                         date = "2025-06-02",
-                        vacationId = vacationId1
+                        vacationId = vacationId1.toLong()
                     ),
                     Excursion(
                         name = "Hiking",
                         description = "Trail to the volcano peak",
                         date = "2025-06-04",
-                        vacationId = vacationId1
+                        vacationId = vacationId1.toLong()
                     ),
                     Excursion(
                         name = "Broadway Show",
                         description = "Watch a live Broadway performance",
                         date = "2025-09-16",
-                        vacationId = vacationId2
+                        vacationId = vacationId2.toLong()
                     ),
                     Excursion(
                         name = "Statue of Liberty Tour",
                         description = "Visit the iconic Statue of Liberty",
                         date = "2025-09-17",
-                        vacationId = vacationId2
+                        vacationId = vacationId2.toLong()
                     )
                 )
 

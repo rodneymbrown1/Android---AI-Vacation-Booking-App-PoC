@@ -16,18 +16,18 @@ interface ExcursionDao {
 
     // Get excursions by IDs
     @Query("SELECT * FROM Excursion WHERE id IN (:excursionIds)")
-    suspend fun loadAllByIds(excursionIds: IntArray): List<Excursion>
+    suspend fun loadAllByIds(excursionIds: LongArray): List<Excursion>
 
     // Find an excursion by name
     @Query("SELECT * FROM Excursion WHERE name LIKE :name LIMIT 1")
     suspend fun findByName(name: String): Excursion?
 
     @Query("SELECT * FROM Excursion WHERE vacation_id = :vacationId")
-    suspend fun getExcursionsForVacation(vacationId: Int): List<Excursion>
+    suspend fun getExcursionsForVacation(vacationId: Long): List<Excursion>
 
     // Insert multiple excursions
     @Insert
-    suspend fun insertAll(vararg excursions: Excursion)
+    suspend fun insertAll(vararg excursions: Excursion): List<Long>
 
     // Delete an excursion
     @Delete

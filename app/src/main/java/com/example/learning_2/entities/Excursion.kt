@@ -12,9 +12,9 @@ import androidx.room.*
     indices = [Index(value = ["vacation_id"])] // Index to improve query performance
 )
 data class Excursion(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "name") var name: String,
     @ColumnInfo(name = "description") var description: String,
     @ColumnInfo(name = "date") var date: String,
-    @ColumnInfo(name = "vacation_id") var vacationId: Int // Foreign key linking to Vacation
+    @ColumnInfo(name = "vacation_id") var vacationId: Long // Foreign key linking to Vacation
 )

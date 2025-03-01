@@ -190,7 +190,7 @@ fun VacationManager(database: AppDatabase, onNext: (Int) -> Unit) {
 
             if (selectedVacation != null) {
                 Button(
-                    onClick = { selectedVacation?.id?.let { onNext(it) } }
+                    onClick = { selectedVacation?.id?.let { onNext(it.toInt()) } }
                 ) {
                     Text("Next")
                 }

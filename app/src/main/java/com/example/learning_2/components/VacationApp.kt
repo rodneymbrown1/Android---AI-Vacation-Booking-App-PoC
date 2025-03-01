@@ -24,7 +24,7 @@ fun VacationApp(database: AppDatabase) {
             val vacationId = backStackEntry.arguments?.getString("vacationId")?.toInt() ?: 0
             VacationDetailView(
                 database = database,
-                vacationId = vacationId,
+                vacationId = vacationId.toLong(),
                 navController = navController
             )
         }
