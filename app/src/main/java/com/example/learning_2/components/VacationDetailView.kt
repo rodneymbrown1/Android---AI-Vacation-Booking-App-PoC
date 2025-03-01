@@ -20,6 +20,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.example.learning_2.components.ShareVacationDetails
+import com.example.learning_2.components.HTTP.OpenAIConnection
+import java.util.concurrent.Executors
 
 @Composable
 fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController: NavController) {
@@ -27,16 +29,16 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
     val excursionDao = database.excursionDao()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
     // Vacation state
     var vacation by remember { mutableStateOf<Vacation?>(null) }
     var title by remember { mutableStateOf("") }
     var hotel by remember { mutableStateOf("") }
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
-
     // Excursion state
     var excursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
+    var openAIexcursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
+    var vacationExcursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
     var isEditingExcursion by remember { mutableStateOf(false) }
     var currentExcursion by remember { mutableStateOf<Excursion?>(null) }
     var excursionName by remember { mutableStateOf("") }
@@ -44,7 +46,30 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
     var excursionDate by remember { mutableStateOf("") }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-
+    var apiResponse by remember { mutableStateOf("Fetching API data...") }
+    var selectedExcursion by remember { mutableStateOf<Excursion?>(null) }
+    val onSelectionChange: (Excursion) -> Unit = { excursion ->
+        selectedExcursion = excursion
+        excursionName = excursion.name
+        excursionDescription = excursion.description
+        excursionDate = excursion.date
+    }
+    // Define the onEdit callback variable
+    val onEdit: (Excursion) -> Unit = { excursion ->
+        isEditingExcursion = true
+        currentExcursion = excursion
+        excursionName = excursion.name
+        excursionDescription = excursion.description
+        excursionDate = excursion.date
+    }
+    // Define the onDelete callback variable
+    val onDelete: (Excursion) -> Unit = { excursion ->
+        scope.launch {
+            excursionDao.delete(excursion)
+            // Refresh the excursions list after deletion
+            excursions = excursionDao.getExcursionsForVacation(vacationId)
+        }
+    }
     // Generate vacation details for sharing
     fun getVacationDetails(): String {
         val excursionDetails = if (excursions.isNotEmpty()) {
@@ -64,12 +89,13 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
             $excursionDetails
         """.trimIndent()
     }
-
-    // Load vacation and excursions from the database
+//========================================================================================================================
+// Load vacation and excursions from the database
     LaunchedEffect(vacationId) {
         withContext(Dispatchers.IO) {
             val fetchedVacation = vacationDao.getById(vacationId)
             val fetchedExcursions = excursionDao.getExcursionsForVacation(vacationId)
+            vacationExcursions = fetchedExcursions
 
             withContext(Dispatchers.Main) {
                 vacation = fetchedVacation
@@ -83,32 +109,83 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
             }
         }
     }
+//========================================================================================================================
+// OPEN AI RESPONSE
+    LaunchedEffect(title, hotel, startDate, endDate) {
+        if (title.isNotBlank() && hotel.isNotBlank() && startDate.isNotBlank() && endDate.isNotBlank()) {
+            scope.launch(Dispatchers.IO) {
+                val promptJson = """
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that generates vacation excursion plans."
+                },
+                {
+                    "role": "user",
+                    "content": "Generate 3 unique excursions for a vacation titled '$title' at '$hotel' from $startDate to $endDate. 
+                    Each excursion should have:
+                    - Name
+                    - Description
+                    - A date within the vacation period.
 
+                    Return the response strictly as a valid JSON array, following this format:
+                    [
+                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"},
+                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"},
+                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"}
+                    ]
+                    Do not add any other text, only return a valid JSON array."
+                }
+            """.trimIndent()
+
+                val response = OpenAIConnection.fetchOpenAIResponse(promptJson)
+                System.out.println(response);
+                try {
+                    val jsonArray = org.json.JSONArray(response)
+                    val newExcursions = mutableListOf<Excursion>()
+
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        newExcursions.add(
+                            Excursion(
+                                id = 0,  // Database auto-generates ID
+                                name = obj.getString("name"),
+                                description = obj.getString("description"),
+                                date = obj.getString("date"),
+                                vacationId = vacationId
+                            )
+                        )
+                    }
+                    System.out.println(newExcursions)
+
+                    withContext(Dispatchers.Main) {
+                        openAIexcursions = newExcursions
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+//========================================================================================================================
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            text = if (vacation == null) "Add Vacation" else "Edit Vacation",
-            style = MaterialTheme.typography.titleLarge
+        Spacer(modifier = Modifier.height(16.dp))
+//========================================================================================================================
+//EXCURSION DROPDOWN
+        ExcursionSelectionRow(
+            excursions = openAIexcursions,
+            selectedExcursion = selectedExcursion,
+            onSelectionChange = onSelectionChange,
+            onEdit = onEdit,
+            onDelete = onDelete
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Input Fields for Vacation
-        LabeledInputField(label = "Title", value = title, onValueChange = { title = it })
-        LabeledInputField(label = "Hotel/Place to Stay", value = hotel, onValueChange = { hotel = it })
-        LabeledInputField(label = "Start Date", value = startDate, onValueChange = { startDate = it })
-        LabeledInputField(label = "End Date", value = endDate, onValueChange = { endDate = it })
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Excursion List
-        Text("Excursions", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
+//========================================================================================================================
+//ADDED EXCURSION
         excursions.forEach { excursion ->
             Row(
                 modifier = Modifier
@@ -131,10 +208,13 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
                     }) {
                         Text("Edit")
                     }
+//========================================================================================================================
+//DELETE BUTTON
                     TextButton(onClick = {
                         scope.launch {
                             excursionDao.delete(excursion)
                             excursions = excursionDao.getExcursionsForVacation(vacationId)
+
                         }
                     }) {
                         Text("Delete")
@@ -142,10 +222,8 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Add/Update Excursion Form
+//========================================================================================================================
+// Add/Update Excursion Form
         Text(
             text = if (isEditingExcursion) "Edit Excursion" else "Add New Excursion",
             style = MaterialTheme.typography.titleMedium
@@ -156,8 +234,12 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
         LabeledInputField(label = "Excursion Description", value = excursionDescription, onValueChange = { excursionDescription = it })
         LabeledInputField(label = "Excursion Date (YYYY-MM-DD)", value = excursionDate, onValueChange = { excursionDate = it })
 
+
         Row() {
             Spacer(modifier = Modifier.height(8.dp))
+
+//========================================================================================================================
+//UPDATE / ADD EXCURSION - BUTTON
             Button(
                 onClick = {
                     // Validate date format
@@ -173,7 +255,8 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
                         showErrorDialog = true
                         return@Button
                     }
-
+//========================================================================================================================
+//DATABASE
                     scope.launch {
                         try {
                             withContext(Dispatchers.IO) {
@@ -214,7 +297,6 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
             ) {
                 Text(if (isEditingExcursion) "Update Excursion" else "Add Excursion")
             }
-
             // Error Dialog
             if (showErrorDialog) {
                 AlertDialog(
@@ -228,10 +310,9 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
                     text = { Text(errorMessage) }
                 )
             }
-
 // Generate the excursion details as a list of strings
             val excursionDetails = excursions.map { "${it.name}: ${it.description} (${it.date})" }
-
+//========================================================================================================================
 // Pass to ShareVacationDetails
             ShareVacationDetails(
                 vacationTitle = vacation?.title ?: "Vacation",
@@ -245,7 +326,6 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
                 context = context,
             )
         }
-
         Spacer(modifier = Modifier.height(16.dp))
         Row() {
             // Back Button
@@ -256,17 +336,14 @@ fun VacationDetailView(database: AppDatabase, vacationId: Int = 0, navController
             }
         }
     }
-
-
-
 }
-
+//========================================================================================================================
+//helper functinons
 // Helper function to validate the date format
 fun isDateValid(date: String): Boolean {
     val regex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
     return regex.matches(date)
 }
-
 // Helper function to validate if a date is within a given range
 fun isDateWithinRange(date: String, startDate: String, endDate: String): Boolean {
     return try {
@@ -282,4 +359,7 @@ fun isDateWithinRange(date: String, startDate: String, endDate: String): Boolean
 
 
 }
+
+
+
 
