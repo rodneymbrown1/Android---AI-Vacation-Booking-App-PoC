@@ -1,6 +1,43 @@
-# Android AI Vacation Booking App (PoC)
+# AI Vacation Planner — Android
 
-A proof-of-concept Android application that lets users plan vacations and automatically generates excursion suggestions using OpenAI's GPT-4o-mini API. Built with Jetpack Compose, Room Database, and Kotlin Coroutines.
+![CI](https://github.com/rodneymbrown1/Android---AI-Vacation-Booking-App-PoC/actions/workflows/android-ci.yml/badge.svg)
+
+An Android application that helps users plan vacations and generate AI-powered excursion suggestions using the OpenAI API. Built with Clean Architecture, MVVM, Hilt DI, Jetpack Compose, and Room.
+
+## Architecture
+
+This project follows **Clean Architecture** with an **MVVM** presentation pattern and **Unidirectional Data Flow (UDF)**.
+
+```
+┌─────────────────────────────────────────────┐
+│              Presentation Layer              │
+│  VacationViewModel  |  ExcursionViewModel   │
+│  VacationUiState    |  ExcursionUiState     │
+│         StateFlow -> collectAsState()        │
+└──────────────────┬──────────────────────────┘
+                   │ depends on interfaces
+┌──────────────────▼──────────────────────────┐
+│               Domain Layer                   │
+│  VacationRepository  (interface)            │
+│  ExcursionRepository (interface)            │
+└──────────────────┬──────────────────────────┘
+                   │ implemented by
+┌──────────────────▼──────────────────────────┐
+│                Data Layer                    │
+│  VacationRepositoryImpl  (Room DAOs)        │
+│  ExcursionRepositoryImpl (Room DAOs)        │
+│  AiService               (Ktor / OpenAI)    │
+└─────────────────────────────────────────────┘
+         All wired together by Hilt DI
+```
+
+**Design decisions:**
+- ViewModels survive configuration changes — no data re-fetched on rotation
+- Repository interfaces mean tests mock the interface, not the database
+- StateFlow + UDF means one source of truth for each screen, no inconsistent intermediate states
+- Hilt (KSP) manages the full dependency graph with zero manual wiring
+
+---
 
 ## What It Does
 
@@ -27,13 +64,18 @@ Vacation Manager Screen                  Vacation Detail Screen
 
 | Component | Technology |
 |-----------|-----------|
-| Language | Kotlin + Java (OpenAI client) |
-| UI | Jetpack Compose (Material 3) |
-| Database | Room (SQLite) |
+| Language | Kotlin (primary), Java (legacy HTTP client) |
+| UI | Jetpack Compose + Material 3 |
+| Architecture | MVVM + Clean Architecture |
+| DI | Hilt (KSP) |
 | Navigation | Jetpack Navigation Compose |
-| Async | Kotlin Coroutines |
-| HTTP | OkHttp3 |
-| AI | OpenAI Chat Completions API (GPT-4o-mini) |
+| Database | Room (SQLite) |
+| Networking | Ktor Client (OkHttp engine) |
+| Serialization | kotlinx.serialization |
+| Async | Kotlin Coroutines + StateFlow |
+| AI | OpenAI GPT-4o-mini |
+| Testing | JUnit 4, MockK, kotlinx-coroutines-test |
+| CI/CD | GitHub Actions |
 | Min SDK | 26 (Android 8.0) |
 | Target SDK | 34 (Android 14) |
 
@@ -89,14 +131,13 @@ app/src/main/java/com/example/learning_2/
 
 3. **Configure the OpenAI API key**
 
-   The API key is currently hardcoded in `app/src/main/java/com/example/learning_2/components/HTTP/OpenAIConnection.java`. For local development, replace the `API_KEY` and `ORG_ID` constants with your own credentials:
+   Add your key to `local.properties` (this file is git-ignored and must never be committed):
 
-   ```java
-   private static final String API_KEY = "your-openai-api-key";
-   private static final String ORG_ID = "your-org-id";
+   ```properties
+   OPENAI_API_KEY=sk-your-key-here
    ```
 
-   > **Note:** For production use, move API keys to `gradle.properties` or environment variables and access them via `BuildConfig`.
+   The build system injects this into `BuildConfig.OPENAI_API_KEY` automatically. For CI, add it as a GitHub Actions repository secret named `OPENAI_API_KEY`.
 
 ## How to Run
 
@@ -158,12 +199,15 @@ The app uses two Room entities with a foreign key relationship:
 - **Clipboard Sharing** - Share formatted vacation itineraries
 - **Material 3 Theming** - Supports light/dark mode and Android 12+ dynamic colors
 
-## Known Limitations
+## Security
 
-This is a proof-of-concept and has the following limitations:
+API credentials are never hardcoded in source. The build reads `OPENAI_API_KEY` from:
+- **Local development:** `local.properties` (git-ignored)
+- **CI:** GitHub Actions repository secret
 
-- API keys are hardcoded in source (should use secure storage or a backend proxy)
+## Known Limitations / Future Work
+
 - No user authentication
-- No offline caching of AI responses
-- No network error retry logic
-- Single-module architecture (not modularized)
+- No offline caching of AI responses (future: Room cache for AI suggestions)
+- Single-module architecture (future: feature-based modularization)
+- Ktor retry logic not yet implemented for transient network failures

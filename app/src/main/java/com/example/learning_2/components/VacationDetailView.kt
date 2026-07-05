@@ -9,160 +9,46 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.learning_2.database.AppDatabase
 import com.example.learning_2.entities.Excursion
-import com.example.learning_2.entities.Vacation
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.example.learning_2.components.HTTP.OpenAIConnection
+import com.example.learning_2.presentation.excursion.ExcursionViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun VacationDetailView(database: AppDatabase, vacationId: Long = 0, navController: NavController) {
-    val vacationDao = database.vacationDao()
-    val excursionDao = database.excursionDao()
+fun VacationDetailView(
+    vacationId: Long,
+    navController: NavController,
+    viewModel: ExcursionViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    // Vacation state
-    var vacation by remember { mutableStateOf<Vacation?>(null) }
-    var title by remember { mutableStateOf("") }
-    var hotel by remember { mutableStateOf("") }
-    var startDate by remember { mutableStateOf("") }
-    var endDate by remember { mutableStateOf("") }
-    // Excursion state
-    var excursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
-    var openAIexcursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
-    var vacationExcursions by remember { mutableStateOf<List<Excursion>>(emptyList()) }
-    var isEditingExcursion by remember { mutableStateOf(false) }
-    var currentExcursion by remember { mutableStateOf<Excursion?>(null) }
+
     var excursionName by remember { mutableStateOf("") }
     var excursionDescription by remember { mutableStateOf("") }
     var excursionDate by remember { mutableStateOf("") }
+    var isEditingExcursion by remember { mutableStateOf(false) }
+    var currentExcursion by remember { mutableStateOf<Excursion?>(null) }
+    var selectedAiExcursion by remember { mutableStateOf<Excursion?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var apiResponse by remember { mutableStateOf("Fetching API data...") }
-    var selectedExcursion by remember { mutableStateOf<Excursion?>(null) }
-    val onSelectionChange: (Excursion) -> Unit = { excursion ->
-        selectedExcursion = excursion
-        excursionName = excursion.name
-        excursionDescription = excursion.description
-        excursionDate = excursion.date
-    }
-    // Define the onEdit callback variable
-    val onEdit: (Excursion) -> Unit = { excursion ->
-        isEditingExcursion = true
-        currentExcursion = excursion
-        excursionName = excursion.name
-        excursionDescription = excursion.description
-        excursionDate = excursion.date
-    }
-    // Define the onDelete callback variable
-    val onDelete: (Excursion) -> Unit = { excursion ->
-        scope.launch {
-            excursionDao.delete(excursion)
-            // Refresh the excursions list after deletion
-            excursions = excursionDao.getExcursionsForVacation(vacationId)
-        }
-    }
-    // Generate vacation details for sharing
-    fun getVacationDetails(): String {
-        val excursionDetails = if (excursions.isNotEmpty()) {
-            excursions.joinToString("\n") { "- ${it.name}: ${it.description} (${it.date})" }
-        } else {
-            "No excursions available."
-        }
+    var validationError by remember { mutableStateOf("") }
 
-        return """
-            Vacation Details:
-            Title: ${vacation?.title ?: "N/A"}
-            Hotel: ${vacation?.hotel ?: "N/A"}
-            Start Date: ${vacation?.startDate ?: "N/A"}
-            End Date: ${vacation?.endDate ?: "N/A"}
-            
-            Excursions:
-            $excursionDetails
-        """.trimIndent()
-    }
-//========================================================================================================================
-// Load vacation and excursions from the database
     LaunchedEffect(vacationId) {
-        withContext(Dispatchers.IO) {
-            val fetchedVacation = vacationDao.getById(vacationId)
-            val fetchedExcursions = excursionDao.getExcursionsForVacation(vacationId)
-            vacationExcursions = fetchedExcursions
-
-            withContext(Dispatchers.Main) {
-                vacation = fetchedVacation
-                vacation?.let {
-                    title = it.title
-                    hotel = it.hotel
-                    startDate = it.startDate
-                    endDate = it.endDate
-                }
-                excursions = fetchedExcursions
-            }
-        }
+        viewModel.loadVacationAndExcursions(vacationId)
     }
-//========================================================================================================================
-// OPEN AI RESPONSE
-    LaunchedEffect(title, hotel, startDate, endDate) {
-        if (title.isNotBlank() && hotel.isNotBlank() && startDate.isNotBlank() && endDate.isNotBlank()) {
-            scope.launch(Dispatchers.IO) {
-                val promptJson = """
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that generates vacation excursion plans."
-                },
-                {
-                    "role": "user",
-                    "content": "Generate 3 unique excursions for a vacation titled '$title' at '$hotel' from $startDate to $endDate. 
-                    Each excursion should have:
-                    - Name
-                    - Description
-                    - A date within the vacation period.
 
-                    Return the response strictly as a valid JSON array, following this format:
-                    [
-                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"},
-                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"},
-                        {"name": "Excursion Name", "description": "Excursion Description", "date": "YYYY-MM-DD"}
-                    ]
-                    Do not add any other text, only return a valid JSON array."
-                }
-            """.trimIndent()
-
-                val response = OpenAIConnection.fetchOpenAIResponse(promptJson)
-                System.out.println(response);
-                try {
-                    val jsonArray = org.json.JSONArray(response)
-                    val newExcursions = mutableListOf<Excursion>()
-
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        newExcursions.add(
-                            Excursion(
-                                id = 0,  // Database auto-generates ID
-                                name = obj.getString("name"),
-                                description = obj.getString("description"),
-                                date = obj.getString("date"),
-                                vacationId = vacationId
-                            )
-                        )
-                    }
-                    System.out.println(newExcursions)
-
-                    withContext(Dispatchers.Main) {
-                        openAIexcursions = newExcursions
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
         }
     }
 
-//========================================================================================================================
+    val vacation = uiState.vacation
+    val startDate = vacation?.startDate.orEmpty()
+    val endDate = vacation?.endDate.orEmpty()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -170,22 +56,37 @@ fun VacationDetailView(database: AppDatabase, vacationId: Long = 0, navControlle
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-//========================================================================================================================
-//EXCURSION DROPDOWN
+
+        if (uiState.isGeneratingAi) {
+            Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Generating AI excursion suggestions...")
+            }
+        }
+
         ExcursionSelectionRow(
-            excursions = openAIexcursions,
-            selectedExcursion = selectedExcursion,
-            onSelectionChange = onSelectionChange,
-            onEdit = onEdit,
-            onDelete = onDelete
+            excursions = uiState.aiSuggestions,
+            selectedExcursion = selectedAiExcursion,
+            onSelectionChange = { excursion ->
+                selectedAiExcursion = excursion
+                excursionName = excursion.name
+                excursionDescription = excursion.description
+                excursionDate = excursion.date
+            },
+            onEdit = { excursion ->
+                isEditingExcursion = true
+                currentExcursion = excursion
+                excursionName = excursion.name
+                excursionDescription = excursion.description
+                excursionDate = excursion.date
+            },
+            onDelete = { excursion -> viewModel.deleteExcursion(excursion, vacationId) }
         )
-//========================================================================================================================
-//ADDED EXCURSION
-        excursions.forEach { excursion ->
+
+        uiState.excursions.forEach { excursion ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
@@ -200,25 +101,12 @@ fun VacationDetailView(database: AppDatabase, vacationId: Long = 0, navControlle
                         excursionName = excursion.name
                         excursionDescription = excursion.description
                         excursionDate = excursion.date
-                    }) {
-                        Text("Edit")
-                    }
-//========================================================================================================================
-//DELETE BUTTON
-                    TextButton(onClick = {
-                        scope.launch {
-                            excursionDao.delete(excursion)
-                            excursions = excursionDao.getExcursionsForVacation(vacationId)
-
-                        }
-                    }) {
-                        Text("Delete")
-                    }
+                    }) { Text("Edit") }
+                    TextButton(onClick = { viewModel.deleteExcursion(excursion, vacationId) }) { Text("Delete") }
                 }
             }
         }
-//========================================================================================================================
-// Add/Update Excursion Form
+
         Text(
             text = if (isEditingExcursion) "Edit Excursion" else "Add New Excursion",
             style = MaterialTheme.typography.titleMedium
@@ -226,135 +114,72 @@ fun VacationDetailView(database: AppDatabase, vacationId: Long = 0, navControlle
         Spacer(modifier = Modifier.height(8.dp))
 
         LabeledInputField(label = "Excursion Name", value = excursionName, onValueChange = { excursionName = it })
-        LabeledInputField(label = "Excursion Description", value = excursionDescription, onValueChange = { excursionDescription = it })
-        LabeledInputField(label = "Excursion Date (YYYY-MM-DD)", value = excursionDate, onValueChange = { excursionDate = it })
+        LabeledInputField(label = "Description", value = excursionDescription, onValueChange = { excursionDescription = it })
+        LabeledInputField(label = "Date (YYYY-MM-DD)", value = excursionDate, onValueChange = { excursionDate = it })
 
-
-        Row() {
+        Row {
             Spacer(modifier = Modifier.height(8.dp))
-
-//========================================================================================================================
-//UPDATE / ADD EXCURSION - BUTTON
-            Button(
-                onClick = {
-                    // Validate date format
-                    if (!isDateValid(excursionDate)) {
-                        errorMessage = "Invalid date format. Use YYYY-MM-DD."
-                        showErrorDialog = true
-                        return@Button
-                    }
-
-                    // Validate date range
-                    if (!isDateWithinRange(excursionDate, startDate, endDate)) {
-                        errorMessage = "Excursion date must be within the vacation period: $startDate to $endDate."
-                        showErrorDialog = true
-                        return@Button
-                    }
-//========================================================================================================================
-//DATABASE
-                    scope.launch {
-                        try {
-                            withContext(Dispatchers.IO) {
-                                if (isEditingExcursion && currentExcursion != null) {
-                                    excursionDao.update(
-                                        currentExcursion!!.copy(
-                                            name = excursionName,
-                                            description = excursionDescription,
-                                            date = excursionDate
-                                        )
-                                    )
-                                } else {
-                                    excursionDao.insertAll(
-                                        Excursion(
-                                            id = 0, // Auto-generated by the database
-                                            name = excursionName,
-                                            description = excursionDescription,
-                                            date = excursionDate,
-                                            vacationId = vacationId
-                                        )
-                                    )
-                                }
-                                excursions = excursionDao.getExcursionsForVacation(vacationId)
-                            }
-                            Toast.makeText(context, "Excursion saved successfully!", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            Toast.makeText(context, "Error saving excursion.", Toast.LENGTH_SHORT).show()
-                        }
-                        isEditingExcursion = false
-                        currentExcursion = null
-                        excursionName = ""
-                        excursionDescription = ""
-                        excursionDate = ""
-                    }
-                },
-//                modifier = Modifier.align(Alignment.End)
-            ) {
+            Button(onClick = {
+                if (!isDateValid(excursionDate)) {
+                    validationError = "Invalid date format. Use YYYY-MM-DD."
+                    showErrorDialog = true
+                    return@Button
+                }
+                if (!isDateWithinRange(excursionDate, startDate, endDate)) {
+                    validationError = "Excursion date must be within the vacation period: $startDate to $endDate."
+                    showErrorDialog = true
+                    return@Button
+                }
+                if (isEditingExcursion && currentExcursion != null) {
+                    viewModel.updateExcursion(
+                        currentExcursion!!.copy(name = excursionName, description = excursionDescription, date = excursionDate),
+                        vacationId
+                    )
+                } else {
+                    viewModel.addExcursion(excursionName, excursionDescription, excursionDate, vacationId)
+                }
+                isEditingExcursion = false
+                currentExcursion = null
+                excursionName = ""; excursionDescription = ""; excursionDate = ""
+                Toast.makeText(context, "Excursion saved.", Toast.LENGTH_SHORT).show()
+            }) {
                 Text(if (isEditingExcursion) "Update Excursion" else "Add Excursion")
             }
-            // Error Dialog
+
             if (showErrorDialog) {
                 AlertDialog(
                     onDismissRequest = { showErrorDialog = false },
-                    confirmButton = {
-                        TextButton(onClick = { showErrorDialog = false }) {
-                            Text("OK")
-                        }
-                    },
+                    confirmButton = { TextButton(onClick = { showErrorDialog = false }) { Text("OK") } },
                     title = { Text("Validation Error") },
-                    text = { Text(errorMessage) }
+                    text = { Text(validationError) }
                 )
             }
-// Generate the excursion details as a list of strings
-            val excursionDetails = excursions.map { "${it.name}: ${it.description} (${it.date})" }
-//========================================================================================================================
-// Pass to ShareVacationDetails
+
+            val excursionDetails = uiState.excursions.map { "${it.name}: ${it.description} (${it.date})" }
             ShareVacationDetails(
                 vacationTitle = vacation?.title ?: "Vacation",
                 vacationDetails = """
-        Title: ${vacation?.title ?: "N/A"}
-        Hotel: ${vacation?.hotel ?: "N/A"}
-        Start Date: ${vacation?.startDate ?: "N/A"}
-        End Date: ${vacation?.endDate ?: "N/A"}
-    """.trimIndent(),
+                    Title: ${vacation?.title ?: "N/A"}
+                    Hotel: ${vacation?.hotel ?: "N/A"}
+                    Start Date: $startDate
+                    End Date: $endDate
+                """.trimIndent(),
                 excursionDetails = excursionDetails,
-                context = context,
+                context = context
             )
         }
+
         Spacer(modifier = Modifier.height(16.dp))
-        Row() {
-            // Back Button
-            Button(
-                onClick = { navController.popBackStack() },
-            ) {
-                Text("Back")
-            }
-        }
+        Button(onClick = { navController.popBackStack() }) { Text("Back") }
     }
 }
-//========================================================================================================================
-//helper functinons
-// Helper function to validate the date format
-fun isDateValid(date: String): Boolean {
-    val regex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
-    return regex.matches(date)
-}
-// Helper function to validate if a date is within a given range
-fun isDateWithinRange(date: String, startDate: String, endDate: String): Boolean {
-    return try {
-        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        val excursionDate = java.time.LocalDate.parse(date, formatter)
-        val vacationStart = java.time.LocalDate.parse(startDate, formatter)
-        val vacationEnd = java.time.LocalDate.parse(endDate, formatter)
 
-        !excursionDate.isBefore(vacationStart) && !excursionDate.isAfter(vacationEnd)
-    } catch (e: Exception) {
-        false
-    }
+fun isDateValid(date: String): Boolean = Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(date)
 
-
-}
-
-
-
-
+fun isDateWithinRange(date: String, startDate: String, endDate: String): Boolean = try {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    val d = LocalDate.parse(date, formatter)
+    val s = LocalDate.parse(startDate, formatter)
+    val e = LocalDate.parse(endDate, formatter)
+    !d.isBefore(s) && !d.isAfter(e)
+} catch (ex: Exception) { false }
