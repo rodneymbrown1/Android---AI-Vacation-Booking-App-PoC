@@ -41,3 +41,5 @@ dependencies {
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.androidx.runner)
 }
+
+apply(from = "$rootDir/config/gradle/jacoco.gradle.kts")

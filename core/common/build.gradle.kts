@@ -27,3 +27,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+apply(from = "$rootDir/config/gradle/jacoco.gradle.kts")
