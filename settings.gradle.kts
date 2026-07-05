@@ -21,4 +21,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "Learning_2"
 include(":app")
- 
+include(":core:common")
+include(":core:database")
+include(":core:network")
+include(":core:data")
+include(":core:ui")
+include(":feature:vacation")
+include(":feature:excursion")
