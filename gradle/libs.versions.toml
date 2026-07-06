@@ -25,7 +25,7 @@ room = "2.6.1"
 testCoreKtx = "1.6.1"
 mockk = "1.13.5"
 robolectric = "4.10"
-detekt = "1.23.7"
+detekt = "1.23.8"
 ktlintGradle = "12.1.1"
 
 [libraries]
