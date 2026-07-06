@@ -29,12 +29,15 @@ jobs:
       # app/build.gradle.kts falls back to debug signing so this workflow
       # still produces a (debug-signed) bundle for the tag.
       - name: Decode release keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
-          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          else
+            echo "No KEYSTORE_BASE64 secret set; release will be debug-signed."
+          fi
 
       - name: Build release bundle
         env:
@@ -59,12 +62,13 @@ jobs:
       # Demonstrates the full build -> sign -> distribute pipeline; stays
       # inactive until a real Play Console service account secret is added.
       - name: Prepare Play Store credentials
-        if: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          echo "$PLAY_SERVICE_ACCOUNT_JSON" > "$GITHUB_WORKSPACE/play-service-account.json"
-          echo "HAS_PLAY_CREDENTIALS=true" >> "$GITHUB_ENV"
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "$PLAY_SERVICE_ACCOUNT_JSON" > "$GITHUB_WORKSPACE/play-service-account.json"
+            echo "HAS_PLAY_CREDENTIALS=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Publish to Play Store internal track
         if: ${{ env.HAS_PLAY_CREDENTIALS == 'true' }}
