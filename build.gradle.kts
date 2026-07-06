@@ -9,7 +9,6 @@ plugins {
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
-    alias(libs.plugins.play.publisher) apply false
     id("com.google.devtools.ksp") version "2.0.21-1.0.27" apply false
 }
 

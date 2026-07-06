@@ -96,7 +96,7 @@ Vacation Manager Screen                  Vacation Detail Screen
 | Coverage | Jacoco (report generation; see [SUGGESTIONS.md](SUGGESTIONS.md) for the coverage-gate roadmap) |
 | CI/CD | GitHub Actions — static analysis, unit tests, emulator instrumented tests, signed release pipeline |
 | Dependency hygiene | Dependabot (Gradle + GitHub Actions, weekly) |
-| Release | Signed AAB + GitHub Release on tag push, Gradle Play Publisher (internal track, ready once Play Console credentials are added) |
+| Release | Signed AAB + GitHub Release on tag push (Play Store publishing intentionally not wired — see SUGGESTIONS.md) |
 | Min SDK | 26 (Android 8.0) |
 | Target SDK | 34 (Android 14) |
 
@@ -218,7 +218,7 @@ Requires a connected device or running emulator:
 
 ### Cut a Release
 
-Push a `v*.*.*` tag — `android-release.yml` builds a signed AAB (falls back to debug signing if `KEYSTORE_BASE64` isn't configured), attaches it to a GitHub Release, and publishes to the Play Store internal track once `PLAY_SERVICE_ACCOUNT_JSON` is set.
+Push a `v*.*.*` tag — `android-release.yml` builds a signed AAB (falls back to debug signing if `KEYSTORE_BASE64` isn't configured) and attaches it to a GitHub Release. Play Store publishing isn't wired up (no Play Console account for this project); see [SUGGESTIONS.md](SUGGESTIONS.md).
 
 ## Database Schema
 

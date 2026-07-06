@@ -8,7 +8,7 @@ Things intentionally left out of the modularization/CI-CD pass, in rough priorit
 - **Coverage-floor gate.** `jacocoTestReport` runs today and uploads a report, but nothing fails the build below a threshold. Once there's a real coverage baseline across all modules (right now `core:ui`, `core:network`, `feature:excursion`, and `:app` have zero unit tests), add `jacocoTestCoverageVerification` with a floor and ratchet it up over time.
 - **Test coverage for the untested modules.** `core:network` (AiService's retry/timeout/error-mapping logic), `core:ui`, `feature:excursion`'s ViewModel, and `:app`'s nav host have no unit tests yet.
 - **Dependency vulnerability scanning.** Dependabot covers version currency; add OWASP Dependency-Check or Snyk for known-CVE scanning of transitive dependencies.
-- **Real Play Console deployment.** `android-release.yml` already has the Gradle Play Publisher step wired and gated on `PLAY_SERVICE_ACCOUNT_JSON` — it just needs a real service account once there's a Play Console listing.
+- **Play Store deployment.** Not wired up — this project doesn't have a Play Console account. If it did, the natural addition is the Gradle Play Publisher plugin plus a release-workflow step gated on a `PLAY_SERVICE_ACCOUNT_JSON` secret, publishing the signed AAB to an internal track.
 
 ## Scalability & performance
 

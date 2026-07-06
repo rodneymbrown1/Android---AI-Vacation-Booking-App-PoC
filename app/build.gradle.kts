@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
-    alias(libs.plugins.play.publisher)
     id("com.google.devtools.ksp")
 }
 
@@ -60,13 +59,6 @@ android {
     buildFeatures {
         compose = true
     }
-}
-
-play {
-    serviceAccountCredentials.set(rootProject.file("play-service-account.json"))
-    track.set("internal")
-    defaultToAppBundles.set(true)
-    enabled.set(!System.getenv("PLAY_SERVICE_ACCOUNT_JSON_PATH").isNullOrBlank())
 }
 
 dependencies {

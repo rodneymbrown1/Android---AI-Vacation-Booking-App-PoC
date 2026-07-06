@@ -58,18 +58,3 @@ jobs:
         with:
           files: app/build/outputs/bundle/release/app-release.aab
           generate_release_notes: true
-
-      # Demonstrates the full build -> sign -> distribute pipeline; stays
-      # inactive until a real Play Console service account secret is added.
-      - name: Prepare Play Store credentials
-        env:
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
-            echo "$PLAY_SERVICE_ACCOUNT_JSON" > "$GITHUB_WORKSPACE/play-service-account.json"
-            echo "HAS_PLAY_CREDENTIALS=true" >> "$GITHUB_ENV"
-          fi
-
-      - name: Publish to Play Store internal track
-        if: ${{ env.HAS_PLAY_CREDENTIALS == 'true' }}
-        run: ./gradlew :app:publishReleaseBundle --stacktrace
